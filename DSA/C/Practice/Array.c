@@ -24,53 +24,59 @@ the array
 #include<stdlib.h>
 #include<time.h>
 #include<math.h>
-//Traversal of array...
+
 void printArr(int A[],int size){
         for(int i=0;i<size;i++){
                 printf(" %d ",A[i]);
         }
         printf("\n");
 }
-
-
-// Insertion at any position in the array...
 void insert(int A[],int *size,int pos,int element){
-   
-    for(int i=*size-1;i>=pos;i--){
+   if(pos>=*size+1||pos<=0){
+   printf("Invalid Operation\n");
+   }
+   else{
+   for(int i=*size-1;i>=pos;i--){
         A[i+1]=A[i];
     }
     A[pos-1]=element;
     (*size)++;
     printArr(A,*size);
+   }
+   
+   
+    
 }
 
-// Deletion of any element in the array....
 void deletion(int A[],int *size,int pos){
+    if(pos<=0||pos>=*size+1){
+    printf("Invalid operation....\n");
+    }
+    else{
     int item=A[pos-1];
     for(int i=pos-1;i<*size-1;i++){
         A[i]=A[i+1];
     }
     (*size)--; 
     printArr(A,*size);
-}   
-
-/*Search of any element in the array and getting it's position.....*/
-
+    }
+    
+}    
 void searchArr(int A[],int *size,int element){
+     
     for(int i=0;i<*size;i++){
         if(A[i]==element){
-            printf("Found the element at position %d in te array",i+1);
+            printf("Found the element at position %d in te array\n",i+1);
         }
     }
+    printf("Element not Found at any position in the array\n");
 }
-
-
 
 int main(){
 //generating Arrray Randomly 
         int size;
         srand(time(NULL));
-        printf("Enter the size of the array: ");
+        printf("Enter the size of the array: \n");
         scanf("%d",&size);
         int A[size];
         for(int i=0;i<size;i++){
@@ -82,19 +88,19 @@ int main(){
         
         //Insertion at any position 
         int element,pos;
-        printf("Enter the element to be added: ");
+        printf("Enter the element to be added: \n");
         scanf("%d",&element);
-        printf("Enter the position where the element to be added: ");
+        printf("Enter the position where the element to be added: \n");
         scanf("%d",&pos);
         insert(A,&size,pos,element);
         
         // deletion of element
-        printf("Enter the position where the element to be deleted: ");
+        printf("Enter the position where the element to be deleted: \n");
         scanf("%d",&pos);
         deletion(A,&size,pos);
         
         // search of element
-        printf("Enter the element to be searched: ");
+        printf("Enter the element to be searched: \n");
         scanf("%d",&element);
         searchArr(A,&size,element);
 }
