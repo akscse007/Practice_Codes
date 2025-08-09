@@ -24,13 +24,16 @@ the array
 #include<stdlib.h>
 #include<time.h>
 #include<math.h>
-
+//Traversal of array...
 void printArr(int A[],int size){
         for(int i=0;i<size;i++){
                 printf(" %d ",A[i]);
         }
         printf("\n");
 }
+
+
+// Insertion at any position in the array...
 void insert(int A[],int *size,int pos,int element){
    
     for(int i=*size-1;i>=pos;i--){
@@ -41,14 +44,26 @@ void insert(int A[],int *size,int pos,int element){
     printArr(A,*size);
 }
 
+// Deletion of any element in the array....
 void deletion(int A[],int *size,int pos){
     int item=A[pos-1];
     for(int i=pos-1;i<*size-1;i++){
         A[i]=A[i+1];
     }
-    (*size)--;
+    (*size)--; 
     printArr(A,*size);
-}    
+}   
+
+/*Search of any element in the array and getting it's position.....*/
+
+void searchArr(int A[],int *size,int element){
+    for(int i=0;i<*size;i++){
+        if(A[i]==element){
+            printf("Found the element at position %d in te array",i+1);
+        }
+    }
+}
+
 
 
 int main(){
@@ -77,4 +92,9 @@ int main(){
         printf("Enter the position where the element to be deleted: ");
         scanf("%d",&pos);
         deletion(A,&size,pos);
+        
+        // search of element
+        printf("Enter the element to be searched: ");
+        scanf("%d",&element);
+        searchArr(A,&size,element);
 }
