@@ -1,3 +1,8 @@
+/*1. Write a program in C to input an integer number and check 
+if it is prime or not. Assume that the number is less than 
+10000.  
+*/
+
 #include<stdio.h>
 #include<stdbool.h>
 
