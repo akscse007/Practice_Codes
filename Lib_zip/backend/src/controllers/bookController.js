@@ -3,7 +3,20 @@ const Book = require('../models/Book');
 // create book (admin/manager)
 exports.addBook = async (req, res, next) => {
   try {
-    const b = await Book.create(req.body);
+    const payload = req.body || {};
+    // ensure availableCopies is not more than totalCopies
+    if (payload.totalCopies != null && payload.availableCopies == null) {
+      payload.availableCopies = payload.totalCopies;
+    }
+    if (payload.availableCopies > payload.totalCopies) {
+      return res.status(400).json({ message: 'availableCopies cannot exceed totalCopies' });
+    }
+    const existing = await Book.findOne({ isbn: payload.isbn });
+    if (existing) {
+      return res.status(409).json({ message: 'Book with this ISBN already exists' });
+    }
+
+    const b = await Book.create(payload);
     res.status(201).json(b);
   } catch (err) { next(err); }
 };
@@ -14,7 +27,7 @@ exports.getAllBooks = async (req, res, next) => {
     if (req.query.q) {
       q.$or = [
         { title: { $regex: req.query.q, $options: 'i' } },
-        { authors: { $regex: req.query.q, $options: 'i' } },
+        { author: { $regex: req.query.q, $options: 'i' } },
         { isbn: { $regex: req.query.q, $options: 'i' } },
       ];
     }

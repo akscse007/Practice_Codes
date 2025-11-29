@@ -30,7 +30,7 @@ export default function Register() {
     if (!re.test(form.email)) return "Enter a valid email.";
     if (!form.password || form.password.length < 6) return "Password must be at least 6 characters.";
     if (!form.referralCode.trim()) return "Referral code is required.";
-    if (form.referralCode.trim() !== "@kash007") return "Referral code is invalid.";
+    // exact referral value is validated securely on the server using an env var
     return "";
   }
 

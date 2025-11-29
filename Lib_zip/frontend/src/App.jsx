@@ -4,6 +4,8 @@ import { Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import StudentDashboard from "./pages/dashboards/Student";
 import LibrarianDashboard from "./pages/dashboards/Librarian";
+import ManagerDashboard from "./pages/dashboards/Manager";
+import AccountantDashboard from "./pages/dashboards/Accountant";
 import PrivateRoute from "./components/PrivateRoute";
 import RoleRoute from "./components/RoleRoute";
 import Register from "./pages/auth/Register";
@@ -23,12 +25,25 @@ export default function App(){
       } />
       <Route path="/dashboard/librarian" element={
         <PrivateRoute>
-          <RoleRoute allowed={["librarian","manager"]}>
+          <RoleRoute allowed={["librarian","stock_manager"]}>
             <LibrarianDashboard/>
           </RoleRoute>
         </PrivateRoute>
       } />
-      {/* add other dashboards similarly */}
+      <Route path="/dashboard/manager" element={
+        <PrivateRoute>
+          <RoleRoute allowed={["manager"]}>
+            <ManagerDashboard/>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
+      <Route path="/dashboard/accountant" element={
+        <PrivateRoute>
+          <RoleRoute allowed={["accountant"]}>
+            <AccountantDashboard/>
+          </RoleRoute>
+        </PrivateRoute>
+      } />
     </Routes>
   );
 }

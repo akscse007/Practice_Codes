@@ -1,33 +1,5 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+// backend/src/models/User.js
+// Thin shim that re-exports the root User model (backend/models/User.js)
+// so all parts of the app share the same schema that matches the Mongo validator.
 
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['student', 'librarian', 'admin', 'accountant', 'manager', 'supplier'], 
-    default: 'student' 
-  },
-  createdAt: { type: Date, default: Date.now },
-  borrowedCount: { type: Number, default: 0 },
-  activeBorrows: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Borrow' }],
-  resetPasswordToken: String,
-  resetPasswordExpires: Date
-});
-
-// HASH PASSWORD BEFORE SAVE
-userSchema.pre('save', async function(next){
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
-
-// MATCH PASSWORD
-userSchema.methods.matchPassword = async function(entered){
-  return bcrypt.compare(entered, this.password);
-};
-
-module.exports = mongoose.model('User', userSchema);
+module.exports = require('../../models/User');

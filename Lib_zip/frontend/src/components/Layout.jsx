@@ -7,9 +7,9 @@ export default function Layout({ children, role }) {
   const menuFor = {
     student: [
       { to: "/dashboard/student", label: "Dashboard" },
-      { to: "/borrow", label: "Borrow Books" },
-      { to: "/my-books", label: "My Books" },
-      { to: "/pay-fines", label: "Pay Fines" },
+      { to: "/dashboard/student/books", label: "Browse Books" },
+      { to: "/dashboard/student/borrows", label: "My Loans" },
+      { to: "/dashboard/student/fines", label: "Fines & Payments" },
     ],
     librarian: [
       { to: "/dashboard/librarian", label: "Dashboard" },
@@ -18,6 +18,17 @@ export default function Layout({ children, role }) {
       { to: "/borrow-requests", label: "Borrow Requests" },
       { to: "/returns", label: "Returns" },
       { to: "/fines", label: "Fines" },
+    ],
+    manager: [
+      { to: "/dashboard/manager", label: "Dashboard" },
+      { to: "/dashboard/manager/requests", label: "Lend Requests" },
+      { to: "/dashboard/manager/students", label: "Students" },
+      { to: "/dashboard/manager/fines", label: "Fines" },
+    ],
+    accountant: [
+      { to: "/dashboard/accountant", label: "Dashboard" },
+      { to: "/dashboard/accountant/fines", label: "Fine Records" },
+      { to: "/dashboard/accountant/reports", label: "Daily Report" },
     ],
     default: [
       { to: "/dashboard", label: "Dashboard" },

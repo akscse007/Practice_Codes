@@ -1,29 +1,46 @@
 const Borrow = require('../models/Borrow');
 const Book = require('../models/Book');
 const User = require('../models/User');
-const calcFine = require('../utils/calcFine');
+const calcFine = require('../../utils/calcFine');
 const Fine = require('../models/Fine');
 
 exports.issueBook = async (req, res, next) => {
   try {
-    const { studentId, bookId, days=14 } = req.body;
+    const { studentId, bookId, days = 14 } = req.body;
     const book = await Book.findById(bookId);
-    if (!book || book.availableCopies <= 0) return res.status(400).json({ message: 'Book unavailable' });
+    if (!book || book.availableCopies <= 0) {
+      return res.status(400).json({ message: 'Book unavailable' });
+    }
 
-    // check borrow limits (example: 2)
-    const student = await User.findById(studentId).populate('activeBorrows');
+    const student = await User.findById(studentId);
     if (!student) return res.status(404).json({ message: 'Student not found' });
-    if (student.borrowedCount >= 2) return res.status(400).json({ message: 'Borrow limit reached' });
 
-    const dueAt = new Date(Date.now() + days*24*60*60*1000);
+    // account status check
+    if (student.accountStatus && student.accountStatus !== 'active') {
+      return res.status(403).json({ message: 'Account is not active' });
+    }
+
+    // unpaid fines block borrowing
+    const unpaidFineExists = await Fine.exists({ student: studentId, paid: false });
+    if (unpaidFineExists) {
+      return res.status(400).json({ message: 'Unpaid fines present; cannot borrow more books' });
+    }
+
+    // borrow limit based on active Borrow records
+    const maxBooks = student.maxBooks || 2;
+    const activeCount = await Borrow.countDocuments({
+      student: studentId,
+      returnedAt: { $exists: false },
+    });
+    if (activeCount >= maxBooks) {
+      return res.status(400).json({ message: 'Borrow limit reached' });
+    }
+
+    const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     const borrow = await Borrow.create({ student: studentId, book: bookId, dueAt });
 
     book.availableCopies -= 1;
     await book.save();
-
-    student.borrowedCount += 1;
-    student.activeBorrows.push(borrow._id);
-    await student.save();
 
     res.status(201).json(borrow);
   } catch (err) { next(err); }
@@ -45,14 +62,9 @@ exports.returnBook = async (req, res, next) => {
     book.availableCopies += 1;
     await book.save();
 
-    // update student
-    const student = await User.findById(borrow.student._id);
-    student.borrowedCount = Math.max(0, student.borrowedCount - 1);
-    student.activeBorrows = student.activeBorrows.filter(id => id.toString() !== borrow._id.toString());
-    await student.save();
-
-    // calculate fine if overdue
-    const amount = calcFine(borrow.dueAt, borrow.returnedAt, 10); // rate configurable
+    // calculate fine according to business rule:
+    // 2 Rs per day after 15 days from borrowing (issuedAt)
+    const amount = calcFine(borrow.issuedAt || borrow.createdAt, borrow.returnedAt, 2, 15);
     if (amount > 0) {
       const fine = await Fine.create({ borrow: borrow._id, student: student._id, amount });
       return res.json({ borrow, fine });

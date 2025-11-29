@@ -119,11 +119,38 @@
 /* glass panels */
 .glass-panel {
   margin-top: 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(15,23,42,0.35));
+  border-radius: 16px;
   padding: 18px;
   border: 1px solid var(--glass-border);
-  box-shadow: 0 16px 48px rgba(2,6,12,0.12);
+  box-shadow: 0 18px 50px rgba(2,6,12,0.45);
+  backdrop-filter: blur(14px) saturate(130%);
+}
+
+/* glass table used in dashboards */
+.glass-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.glass-table thead {
+  background: rgba(15,23,42,0.7);
+}
+.glass-table th,
+.glass-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: #e5e7eb;
+}
+.glass-table tbody tr:nth-child(even) {
+  background: rgba(15,23,42,0.35);
+}
+.glass-table tbody tr:nth-child(odd) {
+  background: rgba(15,23,42,0.25);
+}
+.glass-table th {
+  text-align: left;
+  font-weight: 600;
 }
 .bullet-list { margin: 10px 0 0 18px; color: rgba(4,8,12,0.8); }
 

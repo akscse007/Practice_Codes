@@ -15,6 +15,7 @@ const borrowRoutes = require('./routes/borrowRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const fineRoutes = require('./routes/fineRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const managerRoutes = require('./routes/managerRoutes');
 
 const app = express();
 connectDB();
@@ -70,6 +71,7 @@ app.use('/api/borrows', borrowRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/fines', fineRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/manager', managerRoutes);
 
 // health
 app.get('/api/health', (req, res) => res.json({ ok: true }));

@@ -1,3 +1,6 @@
-﻿exports.raiseOrder = async (req, res, next) => { res.status(501).json({ message: 'raiseOrder not implemented' }); };
-exports.confirmOrder = async (req, res, next) => { res.status(501).json({ message: 'confirmOrder not implemented' }); };
-exports.markDelivered = async (req, res, next) => { res.status(501).json({ message: 'markDelivered not implemented' }); };
+/**
+ * backend/controllers/orderController.js
+ * Shim that re-exports the real controller from src/controllers/orderController.js
+ */
+
+module.exports = require('../src/controllers/orderController');

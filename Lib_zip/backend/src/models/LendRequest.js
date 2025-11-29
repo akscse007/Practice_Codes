@@ -1,4 +1,4 @@
-zconst mongoose = require('mongoose');
+const mongoose = require('mongoose');
 
 const lendRequestSchema = new mongoose.Schema({
   requester: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

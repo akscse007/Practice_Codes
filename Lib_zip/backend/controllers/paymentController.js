@@ -1,1 +1,6 @@
-﻿exports.createPayment = async (req, res, next) => { res.status(501).json({ message: 'createPayment not implemented' }); };
+/**
+ * backend/controllers/paymentController.js
+ * Shim that re-exports the real controller from src/controllers/paymentController.js
+ */
+
+module.exports = require('../src/controllers/paymentController');

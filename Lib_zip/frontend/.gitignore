@@ -11,10 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local       
+.env
+.env.*.local
+.env.production
+.env.testing
+
 
 # Editor directories and files
 .vscode/*
@@ -26,4 +27,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.env

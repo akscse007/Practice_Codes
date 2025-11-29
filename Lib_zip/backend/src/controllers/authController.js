@@ -44,7 +44,8 @@ async function register(req, res) {
     }
 
     // Static referral gate so only users with a known code can self-register.
-    if (!referralCode || referralCode.trim() !== '@kash007') {
+    const expectedCode = process.env.REFERRAL_CODE || '@kash007';
+    if (!referralCode || referralCode.trim() !== expectedCode) {
       return res.status(403).json({ success: false, message: 'Invalid referral code' });
     }
 

@@ -26,9 +26,27 @@ export default function Login() {
 
   const redirectByRole = useCallback((u) => {
     const role = u?.role || "student";
-    if (role === "student") navigate("/dashboard/student");
-    else if (role === "librarian") navigate("/dashboard/librarian");
-    else navigate("/");
+    switch (role) {
+      case "student":
+        navigate("/dashboard/student");
+        break;
+      case "librarian":
+        navigate("/dashboard/librarian");
+        break;
+      case "manager":
+        navigate("/dashboard/manager");
+        break;
+      case "accountant":
+        navigate("/dashboard/accountant");
+        break;
+      case "stock_manager":
+        // you can later add a dedicated stock dashboard; for now reuse librarian view
+        navigate("/dashboard/librarian");
+        break;
+      default:
+        navigate("/");
+        break;
+    }
   }, [navigate]);
 
   // Google Identity handler (server-side should handle id_token)
