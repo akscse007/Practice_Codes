@@ -1,92 +1,178 @@
-/**
- * E:\Codes\LibRepo\Mern\backend\routes\authRoutes.js
- *
- * Defensive + verbose router used for debugging missing handler exports.
- * It logs the resolved controller module (type and keys) and refuses to mount
- * routes with undefined handlers.
- */
-
+// backend/src/routes/authRouters.js
 const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library'); // optional: only if using Google sign-in
 const router = express.Router();
 
-function tryRequire(paths) {
-  let lastErr = null;
-  for (const p of paths) {
-    try {
-      const mod = require(p);
-      return { mod, path: p };
-    } catch (err) {
-      lastErr = err;
+// adjust these to match your project structure:
+const User = require('../models/User'); // <- ensure this path is correct
+const authMiddleware = require('../middleware/auth'); // optional token middleware (example below)
+
+// ENV required:
+// JWT_SECRET  (e.g. "supersecret")
+// JWT_EXPIRES_IN (optional, e.g. "7d")
+// GOOGLE_CLIENT_ID (optional, if using Google login)
+
+const JWT_SECRET = process.env.JWT_SECRET || 'replace_this_with_a_real_secret';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || null;
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+/**
+ * Helper: generate JWT
+ */
+function signToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
+
+/**
+ * REGISTER
+ * POST /api/auth/register
+ * body: { name, email, password, role }
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'name, email and password required' });
     }
+
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) return res.status(409).json({ message: 'User already exists' });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(password, salt);
+
+    const user = new User({
+      name,
+      email: email.toLowerCase(),
+      password: hashed,
+      role: role || 'student', // default role
+    });
+
+    await user.save();
+
+    const token = signToken({ id: user._id, role: user.role });
+
+    res.status(201).json({
+      message: 'User registered',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
-  const err = new Error('Failed to require authController from paths: ' + paths.join(', ') + '. Last error: ' + (lastErr && lastErr.message));
-  err.original = lastErr;
-  throw err;
-}
+});
 
-let attempt;
-try {
-  attempt = tryRequire([
-    '../controllers/authController',
-    '../src/controllers/authController',
-    './authController',
-    '../controllers/auth'
-  ]);
-} catch (e) {
-  console.error('authRoutes: cannot locate authController. Error:', e.message);
-  // Re-throw so app startup fails loudly and you can see the message
-  throw e;
-}
+/**
+ * LOGIN (local)
+ * POST /api/auth/login
+ * body: { email, password }
+ */
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ message: 'email and password required' });
 
-const authCtrl = attempt.mod;
-console.log('authRoutes: loaded authController from', attempt.path);
-console.log('authRoutes: controller typeof ->', typeof authCtrl);
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
-// If it's an object, print the keys. If it's a function, print its properties (if any).
-if (authCtrl && typeof authCtrl === 'object') {
-  console.log('authRoutes: controller keys ->', Object.keys(authCtrl));
-} else {
-  console.log('authRoutes: controller value ->', authCtrl);
-}
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
 
-// A helper to safely mount routes only if handler is a function
-function safeMount(method, path, handler, name) {
-  if (typeof handler !== 'function') {
-    console.error(`authRoutes: Handler for ${method.toUpperCase()} ${path} (${name}) is not a function — found:`, typeof handler);
-    throw new Error(`authRoutes: missing handler for ${method} ${path} -> ${name}`);
+    const token = signToken({ id: user._id, role: user.role });
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
-  router[method](path, handler);
-}
+});
 
-// mount routes (use safeMount to avoid undefined handlers)
-safeMount('post', '/register', authCtrl.register, 'register');
-safeMount('post', '/login', authCtrl.login, 'login');
-safeMount('post', '/google', authCtrl.googleSignIn, 'googleSignIn');
-safeMount('post', '/refresh', authCtrl.refreshToken, 'refreshToken');
-safeMount('post', '/logout', authCtrl.logout, 'logout');
+/**
+ * GOOGLE SIGN-IN (optional)
+ * POST /api/auth/google
+ * body: { idToken }  // ID token from client Google Identity
+ *
+ * This verifies the idToken server-side, upserts a user, and returns a JWT.
+ */
+router.post('/google', async (req, res) => {
+  if (!googleClient) return res.status(400).json({ message: 'Google client not configured' });
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ message: 'idToken required' });
 
-// Protected /me route: try to require verifyToken from common locations
-let verifyToken = null;
-try {
-  const mwAttempt = tryRequire([
-    '../middleware/auth',
-    '../middlewares/jwtAuth',
-    '../src/middleware/auth',
-    '../src/middleware/authMiddleware',
-    '../middlewares/auth'
-  ]);
-  const mw = mwAttempt.mod;
-  console.log('authRoutes: loaded middleware from', mwAttempt.path);
-  verifyToken = mw.verifyToken || mw;
-  console.log('authRoutes: verifyToken typeof ->', typeof verifyToken);
-} catch (e) {
-  console.warn('authRoutes: verifyToken middleware not found via fallbacks; /me will return diagnostic (not crash).');
-}
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload(); // contains email, name, picture, etc.
 
-if (typeof verifyToken === 'function') {
-  router.get('/me', verifyToken, (req, res) => res.json({ success: true, user: req.user }));
-} else {
-  router.get('/me', (req, res) => res.status(501).json({ success: false, message: 'Auth middleware not configured' }));
-}
+    if (!payload || !payload.email) return res.status(400).json({ message: 'Invalid token' });
+
+    const email = payload.email.toLowerCase();
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // create a user with a random password (they'll sign in through Google)
+      user = new User({
+        name: payload.name || 'Google User',
+        email,
+        password: (Math.random() + 1).toString(36).slice(2), // not used
+        role: 'student',
+        google: true,
+      });
+      await user.save();
+    }
+
+    const token = signToken({ id: user._id, role: user.role });
+    res.json({
+      message: 'Google sign-in successful',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error('Google signin error:', err);
+    res.status(500).json({ message: 'Google signin failed' });
+  }
+});
+
+/**
+ * Example protected route
+ * GET /api/auth/me
+ * header: Authorization: Bearer <token>
+ */
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ user });
+  } catch (err) {
+    console.error('Get me error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

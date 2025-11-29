@@ -1,4 +1,8 @@
-﻿exports.register = async (req, res, next) => { res.status(501).json({ message: 'register not implemented' }); };
-exports.login = async (req, res, next) => { res.status(501).json({ message: 'login not implemented' }); };
-exports.forgotPassword = async (req, res, next) => { res.status(501).json({ message: 'forgotPassword not implemented' }); };
-exports.resetPassword = async (req, res, next) => { res.status(501).json({ message: 'resetPassword not implemented' }); };
+/**
+ * E:\\Codes\\LibRepo\\Mern\\backend\\controllers\\authController.js
+ *
+ * Thin re-export shim to use the full implementation under src/controllers/authController.js.
+ * This ensures routes that require('../controllers/authController') get the real logic.
+ */
+
+module.exports = require('../src/controllers/authController');

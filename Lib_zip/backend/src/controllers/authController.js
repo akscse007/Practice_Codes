@@ -17,8 +17,9 @@
  */
 
 const crypto = require('crypto');
-const User = require('../models/User');
-const { signAccessToken, signRefreshToken, verifyToken } = require('../utils/token');
+// Use the root User model which is compatible with existing documents (passwordHash + comparePassword)
+const User = require('../../models/User');
+const { signAccessToken, signRefreshToken, verifyToken } = require('../../utils/token');
 
 let OAuth2Client;
 try {
@@ -37,25 +38,46 @@ const COOKIE_OPTIONS = {
 
 async function register(req, res) {
   try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Missing fields' });
+    let { name, email, password, userType, referralCode } = req.body || {};
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Missing fields' });
+    }
+
+    // Static referral gate so only users with a known code can self-register.
+    if (!referralCode || referralCode.trim() !== '@kash007') {
+      return res.status(403).json({ success: false, message: 'Invalid referral code' });
+    }
+
+    // Normalize email; users can only self-register as student.
+    email = String(email).toLowerCase().trim();
 
     const exists = await User.findOne({ email });
-    if (exists) return res.status(409).json({ success: false, message: 'Email already registered' });
+    if (exists) {
+      return res.status(409).json({ success: false, message: 'Email already registered' });
+    }
 
-    const user = new User({ name, email, password, role });
+    // Force role to student; staff roles are assigned later by librarian.
+    // If user selected "staff" in UI, flag it in notes so librarian can upgrade role.
+    const isStaffCandidate = userType === 'staff';
+    const user = new User({
+      name,
+      email,
+      password,
+      role: 'student',
+      notes: isStaffCandidate ? 'self-registered staff' : undefined,
+    });
     await user.save();
 
     const payload = { id: user._id.toString(), role: user.role };
     const accessToken = signAccessToken(payload);
-    const refreshToken = signRefreshToken(payload);
 
-    user.refreshTokens = user.refreshTokens || [];
-    user.refreshTokens.push({ token: refreshToken });
-    await user.save();
-
-    res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
-    return res.json({ success: true, accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    return res.json({
+      success: true,
+      accessToken,
+      token: accessToken,
+      access: accessToken,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+    });
   } catch (err) {
     console.error('authController.register error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -64,25 +86,44 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ success: false, message: 'Missing email or password' });
+    const { email, password } = req.body || {};
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // Basic validation
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
 
+    // Normalize email to match how it is stored in MongoDB
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Compare supplied password with hashed passwordHash in the User model
     const ok = await user.comparePassword(password);
-    if (!ok) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
     const payload = { id: user._id.toString(), role: user.role };
     const accessToken = signAccessToken(payload);
-    const refreshToken = signRefreshToken(payload);
 
-    user.refreshTokens = user.refreshTokens || [];
-    user.refreshTokens.push({ token: refreshToken });
-    await user.save();
-
-    res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
-    return res.json({ success: true, accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    // If you need refresh tokens later, implement them without storing on the user document,
+    // otherwise Mongo collection validation will fail because of additionalProperties: false.
+    return res.json({
+      success: true,
+      accessToken,
+      token: accessToken,
+      access: accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
     console.error('authController.login error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -104,10 +145,7 @@ async function refreshToken(req, res) {
     const user = await User.findById(payload.id);
     if (!user) return res.status(401).json({ success: false, message: 'User not found' });
 
-    const stored = (user.refreshTokens || []).find(rt => rt.token === token);
-    if (!stored) return res.status(401).json({ success: false, message: 'Refresh token not recognized' });
-
-    // optionally rotate refresh tokens here (not implemented)
+    // Stateless refresh: issue a new access token based on the payload only.
     const newAccess = signAccessToken({ id: user._id.toString(), role: user.role });
     return res.json({ success: true, accessToken: newAccess });
   } catch (err) {
@@ -124,12 +162,7 @@ async function logout(req, res) {
       return res.json({ success: true, message: 'Logged out' });
     }
 
-    let payload = null;
-    try { payload = verifyToken(token); } catch (e) { payload = null; }
-
-    if (payload) {
-      await User.findByIdAndUpdate(payload.id, { $pull: { refreshTokens: { token } } });
-    }
+    // We no longer persist refresh tokens on the user document. Just clear cookie.
     res.clearCookie('refreshToken', COOKIE_OPTIONS);
     return res.json({ success: true, message: 'Logged out' });
   } catch (err) {
@@ -142,11 +175,13 @@ async function googleSignIn(req, res) {
   if (!OAuth2Client) return res.status(501).json({ success: false, message: 'Google sign-in not available (google-auth-library not installed)' });
 
   try {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ success: false, message: 'No idToken provided' });
+    // accept both camelCase and snake_case from different frontends
+    const { idToken, id_token } = req.body || {};
+    const tokenFromClient = idToken || id_token;
+    if (!tokenFromClient) return res.status(400).json({ success: false, message: 'No idToken provided' });
 
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
+    const ticket = await client.verifyIdToken({ idToken: tokenFromClient, audience: process.env.GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
     const { email, name } = payload;
     if (!email) return res.status(400).json({ success: false, message: 'Google account missing email' });
@@ -164,14 +199,14 @@ async function googleSignIn(req, res) {
 
     const tokenPayload = { id: user._id.toString(), role: user.role };
     const accessToken = signAccessToken(tokenPayload);
-    const refreshToken = signRefreshToken(tokenPayload);
 
-    user.refreshTokens = user.refreshTokens || [];
-    user.refreshTokens.push({ token: refreshToken });
-    await user.save();
-
-    res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
-    return res.json({ success: true, accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    return res.json({
+      success: true,
+      accessToken,
+      token: accessToken,
+      access: accessToken,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+    });
   } catch (err) {
     console.error('authController.googleSignIn error:', err);
     return res.status(500).json({ success: false, message: 'Google sign-in failed' });

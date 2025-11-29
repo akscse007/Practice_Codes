@@ -11,7 +11,8 @@ export default function Register() {
     name: "",
     email: "",
     password: "",
-    role: "student", // default
+    referralCode: "",
+    userType: "student", // "student" or "staff" (staff roles assigned later by librarian)
     phone: "",
     address: ""
   });
@@ -28,7 +29,8 @@ export default function Register() {
     const re = /\S+@\S+\.\S+/;
     if (!re.test(form.email)) return "Enter a valid email.";
     if (!form.password || form.password.length < 6) return "Password must be at least 6 characters.";
-    if (!["student","librarian","accountant","stock_manager","manager"].includes(form.role)) return "Invalid role selected.";
+    if (!form.referralCode.trim()) return "Referral code is required.";
+    if (form.referralCode.trim() !== "@kash007") return "Referral code is invalid.";
     return "";
   }
 
@@ -44,7 +46,8 @@ export default function Register() {
         name: form.name.trim(),
         email: form.email.trim(),
         password: form.password,
-        role: form.role,
+        referralCode: form.referralCode.trim(),
+        userType: form.userType,
         phone: form.phone || undefined,
         address: form.address || undefined
       };
@@ -68,7 +71,12 @@ export default function Register() {
   }
 
   return (
-    <div className="login-page" role="application" aria-label="Register">
+    <div
+      className="login-page fixed-bg"
+      role="application"
+      aria-label="Register"
+      style={{ backgroundImage: "url('/cover.png')" }}
+    >
       <div className="bg-overlay" aria-hidden />
 
       <main className="login-wrap" role="main" style={{ maxWidth: 920 }}>
@@ -89,13 +97,24 @@ export default function Register() {
           <label className="input-label">Password</label>
           <input name="password" className="input-control" value={form.password} onChange={onChange} placeholder="At least 6 characters" type="password" />
 
+          <label className="input-label">Referral code</label>
+          <input
+            name="referralCode"
+            className="input-control"
+            value={form.referralCode}
+            onChange={onChange}
+            placeholder="Enter referral code to create an account"
+          />
+
           <label className="input-label">Role</label>
-          <select name="role" className="input-control" value={form.role} onChange={onChange}>
+          <select
+            name="userType"
+            className="input-control"
+            value={form.userType}
+            onChange={onChange}
+          >
             <option value="student">Student</option>
-            <option value="librarian">Librarian</option>
-            <option value="accountant">Accountant</option>
-            <option value="stock_manager">Stock Manager</option>
-            <option value="manager">Manager</option>
+            <option value="staff">Staff</option>
           </select>
 
           <label className="input-label">Phone (optional)</label>

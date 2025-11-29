@@ -1,22 +1,21 @@
-/**
- * E:\Codes\LibRepo\Mern\backend\middleware\auth.js
- *
- * Compatibility shim: some files expect middleware at ../middleware/auth
- * while your project uses ../middlewares/jwtAuth (or src/middleware). To avoid
- * changing many require() calls, this shim re-exports the real implementation.
- *
- * If you later standardize on a single directory name, remove this shim.
- */
+// backend/src/middleware/auth.js
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'replace_this_with_a_real_secret';
 
-try {
-  // Prefer the existing middlewares folder if present
-  module.exports = require('../middlewares/jwtAuth');
-} catch (e) {
+module.exports = function (req, res, next) {
+  const authHeader = req.header('Authorization') || req.header('authorization');
+  if (!authHeader) return res.status(401).json({ message: 'No token, authorization denied' });
+
+  const parts = authHeader.split(' ');
+  const token = parts.length === 2 && parts[0] === 'Bearer' ? parts[1] : parts[0];
+
+  if (!token) return res.status(401).json({ message: 'Token missing' });
+
   try {
-    // Fallback to src middleware (common in some project layouts)
-    module.exports = require('../src/middleware/auth');
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // { id, role, iat, exp }
+    next();
   } catch (err) {
-    // If neither exists, throw a helpful error so startup logs show the cause.
-    throw new Error('Auth middleware not found. Expected ../middlewares/jwtAuth or ../src/middleware/auth. Original errors: ' + e.message + ' | ' + err.message);
+    return res.status(401).json({ message: 'Token invalid' });
   }
-}
+};

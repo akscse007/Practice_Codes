@@ -13,15 +13,17 @@ export const removeToken = () => localStorage.removeItem(TOKEN_KEY);
 // Register: server may set cookie and/or return token in body
 export const register = async (payload) => {
   const res = await API.post("/auth/register", payload);
-  // If backend returns token explicitly, persist it
-  if (res?.data?.token) saveToken(res.data.token);
+  // Accept multiple token field names for compatibility
+  const token = res?.data?.token || res?.data?.accessToken || res?.data?.access;
+  if (token) saveToken(token);
   return res;
 };
 
 // Login: server may set cookie and/or return token in body
 export const login = async (payload) => {
   const res = await API.post("/auth/login", payload);
-  if (res?.data?.token) saveToken(res.data.token);
+  const token = res?.data?.token || res?.data?.accessToken || res?.data?.access;
+  if (token) saveToken(token);
   return res;
 };
 

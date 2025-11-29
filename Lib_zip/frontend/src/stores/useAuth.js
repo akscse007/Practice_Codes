@@ -1,6 +1,6 @@
 // frontend/src/stores/useAuth.js
 import { create } from "zustand";
-import API from "../api/axios";
+import API, { TOKEN_KEY } from "../api/axios";
 
 // Hydrate user data by calling /auth/me using saved access token
 async function fetchMe() {
@@ -16,8 +16,17 @@ async function fetchMe() {
 const useAuth = create((set) => ({
   user: null,
 
-  // set logged-in user manually
-  setUser: (user) => set({ user }),
+  // set logged-in user manually (optionally persist token)
+  setUser: (user, token, refreshToken) => {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    }
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
+    set({ user });
+  },
 
   // validate token & load user info
   hydrateUser: async () => {
@@ -28,7 +37,7 @@ const useAuth = create((set) => ({
 
   // logout function
   logout: () => {
-    localStorage.removeItem("access_token");
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem("refresh_token");
     API.defaults.headers.common["Authorization"] = "";
     set({ user: null });
